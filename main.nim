@@ -20,22 +20,21 @@ func circlePartVerts(th1, th2 : float, tNum : int, r : float, origin : Vector2) 
     let dTH = (th1 - th2) / tNum.float
     let rotMat = getRotMat(dTH)
     result = @[makevec2(origin.x + r, origin.y)]
-    result[0] *= (result[0] - origin) * getRotMat(th1) + origin
-    debugEcho makevec2(1, 1) * getRotMat(th1)
+    result[0] = (result[0] - origin) * getRotMat(th1) + origin
     for i in 0..<tNum:
         result.add (result[i] - origin) * rotMat + origin
 
 func drawCirclePart(verts : seq[Vector2], origin : Vector2) =
-    rlBegin(RL_TRIANGLES)
     for i in 0..<verts.len - 1:
+        rlBegin(RL_TRIANGLES)
         rlColor3f 1, 1, 1
         rlVertex2f origin.x, origin.y
 
         rlColor4ub 0, 0, 0, 0
         rlVertex2f verts[i].x, verts[i].y 
         rlVertex2f verts[i + 1].x, verts[i + 1].y
+        rlEnd()
         rlglDraw()
-    rlEnd()
 
 func movePlayer(plr : Player) : Vector2 =
     let acc = 0.15
@@ -70,11 +69,11 @@ while not WindowShouldClose():
     plr.collider.x += velo.x; plr.collider.y += velo.y
 
     BeginDrawing()
-    let cpv = circlePartVerts(0f, -PI / 2, 5, 20, makevec2(screenWidth div 2, screenHeight div 2))
-    drawCirclePart(cpv, makevec2(0, 0))
-    for v in cpv:
-        DrawCircleV v, 10, GREEN
-    DrawCircle screenWidth div 2, screenHeight div 2, 10, YELLOW
+    let cpv = circlePartVerts(0f, -PI / 2.5, 5, 200, plr.pos)
+    # for v in cpv:
+    #     DrawCircleV v, 10, GREEN
+    # DrawCircle screenWidth div 2, screenHeight div 2, 10, YELLOW
+    drawCirclePart(cpv, plr.pos)
     DrawTextureV plrTex, plr.pos, WHITE
     EndDrawing()
 CloseWindow()
