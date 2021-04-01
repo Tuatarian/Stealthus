@@ -81,7 +81,14 @@ func `dot`*(v, v2 : Vector2) : float = ## Dot product of 2 vecs
 
 func `*`*(v : Vector2, mat : seq[seq[int]] | seq[seq[float]]) : Vector2 = ## Requires 2x2 matrix atm
     doAssert mat.len == 2 and mat[0].len == 2, "Only supports 2x2 matrix"
-    return makevec2(v.x * mat[0, 0] + v.y * mat[1, 0], v.x * mat[0, 1] + v.y * mat[1, 1])
+    let
+        x = v.x
+        y = v.y
+        a = mat[0, 0]
+        b = mat[0, 1]
+        c = mat[1, 0]
+        d = mat[1, 1]
+    return makevec2((x * a) + (y * c), (x * b) + (y * d))
 
 func getRotMat*(th : int | float) : seq[seq[int]] | seq[seq[float]] =
     return @[@[cos th, -sin th], @[sin th, cos th]]
