@@ -352,3 +352,12 @@ proc echo*[T](s : seq[seq[T]]) =
         for j in 0..<s[i].len:
             stdout.write s[i, j], " "
         echo ""
+
+func angleToPoint*(v : Vector2) : float = ## Returns in Radians
+    result = -arctan(v.y / v.x)
+    if v.x != abs(v.x) and v.y == abs(v.y):
+        result = arctan(-abs(v.y / v.x))
+        result = reflect(result, PI / 2)
+    if v.x != abs(v.x) and v.y != abs(v.y):
+        result = arctan(abs(v.y / v.x))
+        result = reflect(result, -PI / 2)
