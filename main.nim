@@ -16,21 +16,21 @@ const
 
 InitWindow screenWidth, screenHeight, "Stealthus"
 
-func circlePartVerts(th1, th2 : float, tNum : int, r : float, origin : Vector2) : seq[Vector2] =
-    let dTH = (th1 - th2) / tNum.float
+func circlePartVerts(th : float, dTH : float, tNum : int, r : float, origin : Vector2) : seq[Vector2] =
+    let dTH = dTH / tNum.float
     let rotMat = getRotMat(dTH)
     result = @[makevec2(origin.x + r, origin.y)]
-    result[0] = (result[0] - origin) * getRotMat(th1) + origin
+    result[0] = (result[0] - origin) * getRotMat(th) + origin
     for i in 0..<tNum:
         result.add (result[i] - origin) * rotMat + origin
 
-func drawCirclePart(verts : seq[Vector2], origin : Vector2) =
+func drawCirclePart(verts : seq[Vector2], origin : Vector2, col : Color) =
     for i in 0..<verts.len - 1:
         rlBegin(RL_TRIANGLES)
-        rlColor3f 1, 1, 1
+        rlColor4ub col.r, col.g, col.b, col.a
         rlVertex2f origin.x, origin.y
 
-        rlColor4ub 0, 0, 0, 0
+        rlColor4ub col.r, col.g, col.b, 0
         rlVertex2f verts[i].x, verts[i].y 
         rlVertex2f verts[i + 1].x, verts[i + 1].y
         rlEnd()
@@ -63,17 +63,20 @@ while not WindowShouldClose():
     ClearBackground BGREY
     
     velo *= damping
-
     velo += movePlayer plr
     plr.pos += velo
     plr.collider.x += velo.x; plr.collider.y += velo.y
 
+
+    let plrCenter = plr.pos + makevec2(plrTex.width / 2, plrTex.height / 2)
+    let relMp = GetMousePosition() - plrCenter
+    var mousAng = angleToPoint relMp
+
     BeginDrawing()
-    let cpv = circlePartVerts(0f, -PI / 2.5, 5, 200, plr.pos)
-    # for v in cpv:
-    #     DrawCircleV v, 10, GREEN
-    # DrawCircle screenWidth div 2, screenHeight div 2, 10, YELLOW
-    drawCirclePart(cpv, plr.pos)
+
+    let cpv = circlePartVerts(mousAng - (PI / 5), PI / 2.5, 10, 200, plrCenter)
+
     DrawTextureV plrTex, plr.pos, WHITE
+    drawCirclePart(cpv, plrCenter, WHITE)
     EndDrawing()
 CloseWindow()
