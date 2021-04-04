@@ -280,28 +280,6 @@ proc drawTriangleFan*(verts : openArray[Vector2], color : Color) = ## Probably i
                     swap(points[k], points[k + 1])
         DrawTriangle(points[0], points[1], points[2], color)
 
-proc drawTriangleFan*(verts : varargs[Vector2], color : Color) = ## Probably inefficient convex polygon renderer
-    var inpoint : Vector2
-    var mutverts : seq[Vector2]
-
-    for v in verts: 
-        inpoint = inpoint + v
-        mutverts.add(v)
-    
-    inpoint = inpoint / float verts.len
-    mutverts.add(verts[0])
-
-    for i in 1..<mutverts.len:
-        var points = [inpoint, mutverts[i - 1], mutverts[i]]
-        var ininpoint = (points[0] + points[1] + points[2]) / 3
-        var polarpoints = [cart2Polar(points[0], ininpoint), cart2Polar(points[1], ininpoint), cart2Polar(points[2], ininpoint)]
-        for j in 0..points.len:
-            for k in 0..<points.len - 1 - j:
-                if polarpoints[k].y > polarpoints[k + 1].y:
-                    swap(polarpoints[k], polarpoints[k + 1])
-                    swap(points[k], points[k + 1])
-        DrawTriangle(points[0], points[1], points[2], color)
-
 func normalize*(v : Vector2) : Vector2 = ## Normalize Vector
     return v / sqrt(v.x ^ 2 + v.y ^ 2)
 
@@ -361,3 +339,9 @@ func angleToPoint*(v : Vector2) : float = ## Returns in Radians
     if v.x != abs(v.x) and v.y != abs(v.y):
         result = arctan(abs(v.y / v.x))
         result = reflect(result, -PI / 2)
+
+func isPositive*[T](t : T) : bool =
+    t == abs(t)
+
+func rectPoints*(rect : Rectangle) : array[4, Vector2] =
+    return [makevec2(rect.x, rect.y), makevec2(rect.x + rect.width, rect.y), makevec2(rect.x + rect.width, rect.y + rect.height), makevec2(rect.x, rect.y + rect.height)]
