@@ -3,6 +3,11 @@ import raylib, math, hashes, sugar, macros, strutils, lenientops, sequtils
 template BGREY*() : auto = makecolor("242424", 255)
 template OFFWHITE*() : auto = makecolor(235, 235, 235)
 
+type Triangle* = object
+    v1* : Vector2
+    v2* : Vector2
+    v3* : Vector2
+
 func makecolor*(f, d, l : int | float | uint8, o : uint8 = 255) : Color = ## Easy color constructor
     return Color(r : uint8 f, g : uint8 d, b : uint8 l, a : uint8 o)
 
@@ -136,7 +141,13 @@ func `in`*(v, t1, t2, t3 : Vector2) : bool =
     let d = sign(v, t1, t2)
     let d2 = sign(v, t2, t3)
     let d3 = sign(v, t3, t1)
-    return not ((d < 0) or (d2 < 0) or (d3 < 0)) and ((d > 0) or (d2 > 0) or (d3 > 0))
+    return not (((d < 0) or (d2 < 0) or (d3 < 0)) and ((d > 0) or (d2 > 0) or (d3 > 0)))
+
+func `in`*(v : Vector2, tri : Triangle) : bool =
+    let d = sign(v, tri.v1, tri.v2)
+    let d2 = sign(v, tri.v2, tri.v3)
+    let d3 = sign(v, tri.v3, tri.v1)
+    return not (((d < 0) or (d2 < 0) or (d3 < 0)) and ((d > 0) or (d2 > 0) or (d3 > 0)))
 
 proc unloadTexture*(texargs : varargs[Texture]) = ## runs UnloadTexture for each vararg
     texargs.iterIt(unloadTexture it)
@@ -345,3 +356,16 @@ func isPositive*[T](t : T) : bool =
 
 func rectPoints*(rect : Rectangle) : array[4, Vector2] =
     return [makevec2(rect.x, rect.y), makevec2(rect.x + rect.width, rect.y), makevec2(rect.x + rect.width, rect.y + rect.height), makevec2(rect.x, rect.y + rect.height)]
+
+func maketri*(v1, v2, v3 : Vector2) : Triangle = 
+    return Triangle(v1 : v1, v2 : v2, v3 : v3)
+
+iterator items*(tri : Triangle) : Vector2 =
+    yield tri.v1
+    yield tri.v2
+    yield tri.v3
+
+iterator pairs*(tri : Triangle) : (int, Vector2) = 
+    yield (0, tri.v1)
+    yield (0, tri.v2)
+    yield (0, tri.v3)
