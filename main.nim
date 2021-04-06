@@ -7,14 +7,12 @@ type
         pos : Vector2
         dir : Vector2
         canMove : bool
-        collider : Rectangle
     Enemy = object
         pos : Vector2
         npos : Vector2
         dir : Vector2
         tDir : Vector2
         rot : float
-        collider : Rectangle
         lookAngle : float
         alert : bool
 
@@ -35,14 +33,17 @@ func circlePartVerts(th : float, dTH : float, tNum : int, r : float, origin : Ve
 func drawCirclePart(verts : seq[Vector2], origin : Vector2, col : Color) =
     for i in 0..<verts.len - 1:
         rlBegin(RL_TRIANGLES)
-        rlColor4ub col.r, col.g, col.b, col.a
+        rlColor4ub col.r, col.g, col.b, col.a div 2
         rlVertex2f origin.x, origin.y
 
-        rlColor4ub col.r, col.g, col.b, 0
+        rlColor4ub col.r, col.g, col.b, col.a div 2
+
         rlVertex2f verts[i].x, verts[i].y 
-        rlVertex2f verts[i + 1].x, verts[i + 1].y
+        rlVertex2f verts[i + 1].x, verts[i + 1].y 
         rlEnd()
         rlglDraw()
+
+template genConeCPV(th : float, center : Vector2) : auto = circlePartVerts(th - PI / 5, PI / 2.5, 10, 200, center)
 
 func movePlayer(plr : Player) : Vector2 =
     let acc = 0.15
@@ -62,14 +63,14 @@ func movePlayer(plr : Player) : Vector2 =
         return (GetMousePosition() - plr.pos).normalize / 10
 
 
-func renderEnms(enms : seq[Enemy], eTex : Texture) =
+func renderEnms(enms : seq[Enemy], eTex : Texture, eCol, visCol : Color) =
     for e in enms:
         let ecenter = e.pos + makevec2(eTex.width / 2, eTex.height / 2)
-        let cpv = circlePartVerts(angleToPoint(e.dir) - PI / 5, PI / 2.5, 10, 200, ecenter)
-        drawCirclePart cpv, ecenter, GREEN
+        let cpv = genConeCPV(angleToPoint(e.dir), ecenter)
         let dirRotMat = getRotMat(angleToPoint e.dir)
         let eDrawPoints = rectPoints(makerect(int e.pos.x, int e.pos.y, eTex.width, eTex.height)).mapIt(it - ecenter).mapIt(it * dirRotMat).mapIt(it + ecenter)
-        drawTriangleFan(eDrawPoints, RED)
+        drawCirclePart cpv, ecenter, visCol
+        drawTriangleFan(eDrawPoints, eCol)
 
 proc moveEnems(enems : var seq[Enemy]) =
     for i in 0..<enems.len:
@@ -92,15 +93,34 @@ proc moveEnems(enems : var seq[Enemy]) =
 
         enems[i].pos = min(max(makevec2(0, 0), enems[i].pos), makevec2(screenWidth, screenHeight))
 
+func checkCol(enems : seq[Enemy], eTex : Texture, point : Vector2) : bool =
+    for e in enems:
+        # if point in makerect(int e.pos.x, int e.pos.y, eTex.width, eTex.height):
+        #     debugEcho "rect"
+        #     return true
+        let ecenter = e.pos + makevec2(eTex.width / 2, eTex.height / 2)
+        let cpv = genConeCPV(angleToPoint(e.dir), ecenter)
+        let tri = maketri(ecenter, cpv[0], cpv[^1])
+        for v in tri:
+            DrawCircleV v, 10, GREEN 
+        if point.in(ecenter, cpv[0], cpv[^1]):
+            debugEcho "tri"
+            return true
+    return false
+
 let
     plrTex = LoadTexture "assets/sprites/plr.png"
     enmTex = LoadTexture "assets/sprites/Enem.png"
     damping = 0.2
+    reducedColorArr = colorArr[3..10] & colorArr[12..13] & colorArr[15..16] & colorArr[21] & colorArr[23..24] & colorArr[26]
 
 var
-    plr = Player(pos : makevec2(screenWidth, screenHeight), canMove : true, collider : makerect(0, 0, 32, 32))
+    plr = Player(pos : makevec2(screenWidth, screenHeight), canMove : true)
     velo : Vector2
     enemies : seq[Enemy]
+    fcount : int
+    eCols : (Color, Color)
+    collided : bool
 
 for i in 0..9:
     enemies.add Enemy(pos : makevec2(rand screenWidth, rand screenHeight))
@@ -109,20 +129,25 @@ while not WindowShouldClose():
     ClearBackground BGREY
     let mp = GetMousePosition() - makevec2(plrTex.width / 2, plrTex.height / 2)
     plr.pos = mp
-    (plr.collider.x, plr.collider.y) = toTuple mp
     plr.pos = min(max(makevec2(0, 0), plr.pos), makevec2(screenWidth, screenHeight))
-
     let plrCenter = plr.pos + makevec2(plrTex.width / 2, plrTex.height / 2)
-    let relMp = GetMousePosition() - plrCenter
-    var mousAng = angleToPoint relMp
+
+    if checkCol(enemies, enmTex, plrCenter):
+        collided = true
 
     BeginDrawing()
 
-    let cpv = circlePartVerts(mousAng - (PI / 5), PI / 2.5, 10, 200, plrCenter)
+    if fcount mod 60 == 0 and not collided:
+        eCols = (reducedColorArr[rand reducedColorArr.len - 1], reducedColorArr[rand reducedColorArr.len - 1])
+        # for i in 0..2:
+        #     enemies.add Enemy(pos : makevec2(rand screenWidth, rand screenHeight))
+    elif collided:
+        eCols = (RED, RED)
 
     DrawTextureV plrTex, plr.pos, WHITE
-    drawCirclePart cpv, plrCenter, WHITE
     moveEnems enemies
-    renderEnms enemies, enmTex
+    renderEnms enemies, enmTex, eCols[0], eCols[1]
     EndDrawing()
+
+    fcount += 1
 CloseWindow()
