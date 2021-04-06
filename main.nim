@@ -72,41 +72,50 @@ func renderEnms(enms : seq[Enemy], eTex : Texture, eCol, visCol : Color) =
         drawCirclePart cpv, ecenter, visCol
         drawTriangleFan(eDrawPoints, eCol)
 
-proc moveEnems(enems : var seq[Enemy]) =
-    for i in 0..<enems.len:
-        if enems[i].pos == enems[i].npos or enems[i].tDir == makevec2(0, 0):
-            enems[i].npos = makevec2(rand screenWidth, rand screenHeight)
-            enems[i].tDir = (enems[i].npos - enems[i].pos).normalize
-                
-        if abs(enems[i].dir - enems[i].tDir) <& 0.1:
-            enems[i].dir = enems[i].tDir
+proc moveEnems(enems : var seq[Enemy], target : Vector2, collided : bool) =
+    if not collided:
+        for i in 0..<enems.len:
+            if enems[i].pos == enems[i].npos or enems[i].tDir == makevec2(0, 0):
+                enems[i].npos = makevec2(rand screenWidth, rand screenHeight)
+                enems[i].tDir = (enems[i].npos - enems[i].pos).normalize
+                    
+            if abs(enems[i].dir - enems[i].tDir) <& 0.1:
+                enems[i].dir = enems[i].tDir
 
-        if enems[i].dir != enems[i].tDir:
-            enems[i].dir += (enems[i].tDir - enems[i].dir) / 125
-            enems[i].rot = angleToPoint enems[i].dir
+            if enems[i].dir != enems[i].tDir:
+                enems[i].dir += (enems[i].tDir - enems[i].dir) / 125
+                enems[i].rot = angleToPoint enems[i].dir
 
-        else:
-            enems[i].pos += enems[i].dir / 2.5
+            else:
+                enems[i].pos += enems[i].dir / 2.5
 
-            if abs(enems[i].pos - enems[i].npos) <& 1:
-                enems[i].pos = enems[i].npos
+                if abs(enems[i].pos - enems[i].npos) <& 1:
+                    enems[i].pos = enems[i].npos
 
-        enems[i].pos = min(max(makevec2(0, 0), enems[i].pos), makevec2(screenWidth, screenHeight))
+            enems[i].pos = min(max(makevec2(0, 0), enems[i].pos), makevec2(screenWidth, screenHeight))
+    else:
+        for i in 0..<enems.len:
+            enems[i].dir = normalize((target - enems[i].pos))
+            enems[i].tDir = enems[i].dir
+
+            enems[i].pos += enems[i].dir * 5
+            enems[i].pos = min(max(makevec2(0, 0), enems[i].pos), makevec2(screenWidth, screenHeight))
+            enems[i].npos = enems[i].pos
+
 
 func checkCol(enems : seq[Enemy], eTex : Texture, point : Vector2) : bool =
     for e in enems:
-        # if point in makerect(int e.pos.x, int e.pos.y, eTex.width, eTex.height):
-        #     debugEcho "rect"
-        #     return true
-        let ecenter = e.pos + makevec2(eTex.width / 2, eTex.height / 2)
-        let cpv = genConeCPV(angleToPoint(e.dir), ecenter)
-        let tri = maketri(ecenter, cpv[0], cpv[^1])
-        for v in tri:
-            DrawCircleV v, 10, GREEN 
-        if point.in(ecenter, cpv[0], cpv[^1]):
-            debugEcho "tri"
+        if point in makerect(int e.pos.x, int e.pos.y, eTex.width, eTex.height):
             return true
     return false
+
+func checkConeCol(enems : seq[Enemy], eTex : Texture, point : Vector2) : bool =
+    for e in enems:
+        let ecenter = e.pos + makevec2(eTex.width / 2, eTex.height / 2)
+        let cpv = genConeCPV(angleToPoint(e.dir), ecenter)
+        for i in 0..<cpv.len - 1:
+            if point.in(ecenter, cpv[i], cpv[i + 1]):
+                return true
 
 let
     plrTex = LoadTexture "assets/sprites/plr.png"
@@ -132,20 +141,25 @@ while not WindowShouldClose():
     plr.pos = min(max(makevec2(0, 0), plr.pos), makevec2(screenWidth, screenHeight))
     let plrCenter = plr.pos + makevec2(plrTex.width / 2, plrTex.height / 2)
 
-    if checkCol(enemies, enmTex, plrCenter):
+    if checkConeCol(enemies, enmTex, plrCenter):
         collided = true
 
     BeginDrawing()
 
-    if fcount mod 60 == 0 and not collided:
-        eCols = (reducedColorArr[rand reducedColorArr.len - 1], reducedColorArr[rand reducedColorArr.len - 1])
-        # for i in 0..2:
-        #     enemies.add Enemy(pos : makevec2(rand screenWidth, rand screenHeight))
+    if fcount mod 6000 == 0:
+        let rInx = rand(reducedColorArr.len - 1)
+        var rInx2 = rand(reducedColorArr.len - 1)
+        while rInx2 == rInx:
+            rInx2 = rand(reducedColorArr.len - 1)
+        eCols = (reducedColorArr[rInx], reducedColorArr[rInx2])
+        collided = false
+        for i in 0..2:
+            enemies.add Enemy(pos : makevec2(rand screenWidth, rand screenHeight))
     elif collided:
         eCols = (RED, RED)
 
     DrawTextureV plrTex, plr.pos, WHITE
-    moveEnems enemies
+    moveEnems enemies, plr.pos, collided
     renderEnms enemies, enmTex, eCols[0], eCols[1]
     EndDrawing()
 
