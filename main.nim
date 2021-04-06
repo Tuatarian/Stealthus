@@ -15,6 +15,9 @@ type
         rot : float
         lookAngle : float
         alert : bool
+    Bullet = object
+        pos : Vector2
+        dir : Vector2
 
 const
     screenWidth = 1920
@@ -72,35 +75,38 @@ func renderEnms(enms : seq[Enemy], eTex : Texture, eCol, visCol : Color) =
         drawCirclePart cpv, ecenter, visCol
         drawTriangleFan(eDrawPoints, eCol)
 
-proc moveEnems(enems : var seq[Enemy], target : Vector2, collided : bool) =
-    if not collided:
-        for i in 0..<enems.len:
-            if enems[i].pos == enems[i].npos or enems[i].tDir == makevec2(0, 0):
-                enems[i].npos = makevec2(rand screenWidth, rand screenHeight)
-                enems[i].tDir = (enems[i].npos - enems[i].pos).normalize
-                    
-            if abs(enems[i].dir - enems[i].tDir) <& 0.1:
-                enems[i].dir = enems[i].tDir
+proc moveEnems(enems : var seq[Enemy], target : Vector2,) =
+    for i in 0..<enems.len:
+        if enems[i].pos == enems[i].npos or enems[i].tDir == makevec2(0, 0):
+            enems[i].npos = makevec2(rand screenWidth, rand screenHeight)
+            enems[i].tDir = (enems[i].npos - enems[i].pos).normalize
+                
+        if abs(enems[i].dir - enems[i].tDir) <& 0.1:
+            enems[i].dir = enems[i].tDir
 
-            if enems[i].dir != enems[i].tDir:
-                enems[i].dir += (enems[i].tDir - enems[i].dir) / 125
-                enems[i].rot = angleToPoint enems[i].dir
+        if enems[i].dir != enems[i].tDir:
+            enems[i].dir += (enems[i].tDir - enems[i].dir) / 125
+            enems[i].rot = angleToPoint enems[i].dir
 
-            else:
-                enems[i].pos += enems[i].dir / 2.5
+        else:
+            enems[i].pos += enems[i].dir / 2.5
 
-                if abs(enems[i].pos - enems[i].npos) <& 1:
-                    enems[i].pos = enems[i].npos
+            if abs(enems[i].pos - enems[i].npos) <& 1:
+                enems[i].pos = enems[i].npos
 
-            enems[i].pos = min(max(makevec2(0, 0), enems[i].pos), makevec2(screenWidth, screenHeight))
-    else:
-        for i in 0..<enems.len:
-            enems[i].dir = normalize((target - enems[i].pos))
-            enems[i].tDir = enems[i].dir
+        enems[i].pos = min(max(makevec2(0, 0), enems[i].pos), makevec2(screenWidth, screenHeight))
 
-            enems[i].pos += enems[i].dir * 5
-            enems[i].pos = min(max(makevec2(0, 0), enems[i].pos), makevec2(screenWidth, screenHeight))
-            enems[i].npos = enems[i].pos
+
+func angryEnemCast(eSeq : var seq[Enemy]) : seq[Vector2]=
+    for e in eSeq:
+        let bPosSeq = circlePartVerts(0, 2 * PI, 5, 5, e.pos)
+        var bullets : seq[Bullet]
+        for v in bPosSeq:
+            bullets.add Bullet(pos : v, dir : normalize (v - e.pos))
+
+func moveBullets(bSeq : var seq[Bullet]) =
+    for i in 0..<bSeq.len:
+        bSeq[i].pos += bSeq[i].dir / 1.5
 
 
 func checkCol(enems : seq[Enemy], eTex : Texture, point : Vector2) : bool =
@@ -159,7 +165,6 @@ while not WindowShouldClose():
         eCols = (RED, RED)
 
     DrawTextureV plrTex, plr.pos, WHITE
-    moveEnems enemies, plr.pos, collided
     renderEnms enemies, enmTex, eCols[0], eCols[1]
     EndDrawing()
 
