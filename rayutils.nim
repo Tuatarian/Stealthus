@@ -104,6 +104,9 @@ func `<|`*(v : Vector2, n : float32 | int | float) : bool = ## True if either x 
 func `<&`*(v : Vector2, n : float32 | int | float) : bool = ## True if both x and y < x2 and y2
     return v.x < n and v.y < n
 
+func `<&`*(v : Vector2, v2 : Vector2) : bool = ## True if both x and y < x2 and y2
+    return v.x < v2.x and v.y < v2.y
+
 func drawTextCentered*(s : string, x, y, fsize : int, colour : Color) =
     let tSizeVec = MeasureTextEx(GetFontDefault(), s, float fsize, max(10,fsize) / 20) div 2
     DrawText s, x - tSizeVec.x.int, y - tSizeVec.y.int, fsize, colour
