@@ -25,6 +25,8 @@ const
 
 InitWindow screenWidth, screenHeight, "Stealthus"
 
+SetTargetFPS 60
+
 func circlePartVerts(th : float, dTH : float, tNum : int, r : float, origin : Vector2) : seq[Vector2] =
     let dTH = dTH / tNum.float
     let rotMat = getRotMat(dTH)
@@ -62,22 +64,32 @@ func movePlayer(plr : Player) : Vector2 =
         # if result.y + result.x == 2 * acc:
         #     result /= 2
         if plr.pos == makevec2(0, 0):
-            debugEcho (GetMousePosition() - plr.pos).normalize
-        return (GetMousePosition() - plr.pos).normalize / 10
+            return (GetMousePosition() - plr.pos).normalize / 10
 
 
 func renderEnms(enms : seq[Enemy], eTex : Texture, eCol, visCol : Color) =
     for e in enms:
         let ecenter = e.pos + makevec2(eTex.width / 2, eTex.height / 2)
         let cpv = genConeCPV(angleToPoint(e.dir), ecenter)
-        let dirRotMat = getRotMat(angleToPoint e.dir)
+        let dirRotMat = getRotMat(e.rot)
         let eDrawPoints = rectPoints(makerect(int e.pos.x, int e.pos.y, eTex.width, eTex.height)).mapIt(it - ecenter).mapIt(it * dirRotMat).mapIt(it + ecenter)
         drawCirclePart cpv, ecenter, visCol
         drawTriangleFan(eDrawPoints, eCol)
+        rlBegin(RL_LINES)
+        rlColor3f 1, 1, 1
+        rlVertex2f e.pos.x, e.pos.y
+        rlVertex2f e.npos.x, e.npos.y
+        rlEnd()
+        rlglDraw()
+        DrawCircleV e.npos, 10, GREEN
 
-proc moveEnems(enems : var seq[Enemy], target : Vector2,) =
+proc moveEnems(enems : var seq[Enemy]) =
     for i in 0..<enems.len:
+        let overshot = (enems[i].npos - enems[i].pos).normalize != enems[i].tDir
         if enems[i].pos == enems[i].npos or enems[i].tDir == makevec2(0, 0):
+            enems[i].npos = makevec2(rand screenWidth, rand screenHeight)
+            enems[i].tDir = (enems[i].npos - enems[i].pos).normalize
+        elif overshot:
             enems[i].npos = makevec2(rand screenWidth, rand screenHeight)
             enems[i].tDir = (enems[i].npos - enems[i].pos).normalize
                 
@@ -85,11 +97,11 @@ proc moveEnems(enems : var seq[Enemy], target : Vector2,) =
             enems[i].dir = enems[i].tDir
 
         if enems[i].dir != enems[i].tDir:
-            enems[i].dir += (enems[i].tDir - enems[i].dir) / 125
+            enems[i].dir += (enems[i].tDir - enems[i].dir) / 7.5
             enems[i].rot = angleToPoint enems[i].dir
 
         else:
-            enems[i].pos += enems[i].dir / 2.5
+            enems[i].pos += enems[i].dir * (20 / 3)
 
             if abs(enems[i].pos - enems[i].npos) <& 1:
                 enems[i].pos = enems[i].npos
@@ -97,17 +109,21 @@ proc moveEnems(enems : var seq[Enemy], target : Vector2,) =
         enems[i].pos = min(max(makevec2(0, 0), enems[i].pos), makevec2(screenWidth, screenHeight))
 
 
-func angryEnemCast(eSeq : var seq[Enemy]) : seq[Vector2]=
-    for e in eSeq:
-        let bPosSeq = circlePartVerts(0, 2 * PI, 5, 5, e.pos)
+func angryEnemCast(eSeq : var seq[Enemy]) : seq[Bullet]=
+    for inx, e in eSeq.pairs:
+        let bPosSeq = circlePartVerts(e.rot, 2 * PI, 5, 5, e.pos)
         var bullets : seq[Bullet]
         for v in bPosSeq:
             bullets.add Bullet(pos : v, dir : normalize (v - e.pos))
+        result &= bullets
 
 func moveBullets(bSeq : var seq[Bullet]) =
     for i in 0..<bSeq.len:
-        bSeq[i].pos += bSeq[i].dir / 1.5
+        bSeq[i].pos += bSeq[i].dir
 
+func renderBullets(bSeq : seq[Bullet], bTex : Texture) =
+    for b in bSeq:
+        DrawRectangle(int b.pos.x, int b.pos.y, 32, 32, YELLOW)
 
 func checkCol(enems : seq[Enemy], eTex : Texture, point : Vector2) : bool =
     for e in enems:
@@ -136,6 +152,7 @@ var
     fcount : int
     eCols : (Color, Color)
     collided : bool
+    bullets : seq[Bullet]
 
 for i in 0..9:
     enemies.add Enemy(pos : makevec2(rand screenWidth, rand screenHeight))
@@ -150,9 +167,9 @@ while not WindowShouldClose():
     if checkConeCol(enemies, enmTex, plrCenter):
         collided = true
 
-    BeginDrawing()
 
-    if fcount mod 6000 == 0:
+    if fcount mod 360 == 0:
+        bullets = @[]
         let rInx = rand(reducedColorArr.len - 1)
         var rInx2 = rand(reducedColorArr.len - 1)
         while rInx2 == rInx:
@@ -161,11 +178,23 @@ while not WindowShouldClose():
         collided = false
         for i in 0..2:
             enemies.add Enemy(pos : makevec2(rand screenWidth, rand screenHeight))
+        for i in 0..<enemies.len:
+            enemies[i].rot = angleToPoint enemies[i].dir
+        fcount = 0
     elif collided:
+        if fcount mod 12 == 0:
+            bullets &= angryEnemCast enemies
+        moveBullets bullets
+        
         eCols = (RED, RED)
+    
+    if not collided: moveEnems enemies
 
+    BeginDrawing()
+    renderBullets bullets, enmTex
     DrawTextureV plrTex, plr.pos, WHITE
     renderEnms enemies, enmTex, eCols[0], eCols[1]
+    DrawFPS 100, 100
     EndDrawing()
 
     fcount += 1
