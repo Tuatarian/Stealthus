@@ -19,6 +19,7 @@ type
     Bullet = object
         pos : Vector2
         dir : Vector2
+        rot : float
 
 const
     screenWidth = 1920
@@ -105,24 +106,27 @@ func angryEnemCast(eSeq : var seq[Enemy], rotAmt : float) : seq[Bullet]=
         let bPosSeq = circlePartVerts(e.rot, 2 * PI, 5, 5, e.pos)
         var bullets : seq[Bullet]
         for v in bPosSeq:
-            bullets.add Bullet(pos : v, dir : normalize (v - e.pos))
+            bullets.add Bullet(pos : v, dir : normalize (v - e.pos), rot : angleToPoint(v - e.pos))
         result &= bullets
         eSeq[inx].rot += rotAmt
 
 func moveBullets(bSeq : var seq[Bullet]) =
     for i in 0..<bSeq.len:
-        bSeq[i].pos += bSeq[i].dir * 5
+        bSeq[i].pos += bSeq[i].dir * 7.5
 
 func renderBullets(bSeq : seq[Bullet], bTex : Texture) =
     for b in bSeq:
-        DrawRectangle(int b.pos.x, int b.pos.y, 32, 32, RED)
+        let rotMat = getRotMat b.rot
+        drawTriangleFan rectPoints(makerect(int b.pos.x, int b.pos.y, 32, 32)).mapIt(it - b.pos).mapIt(it * rotMat).mapIt(it + b.pos), RED
 
 func checkCol(enems : seq[Enemy], eTex : Texture, point : Vector2, bullets : seq[Bullet]) : bool =
     for e in enems:
         if point in makerect(int e.pos.x, int e.pos.y, eTex.width, eTex.height):
             return true
     for b in bullets:
-        if point in makerect(int b.pos.x, int b.pos.y, 32, 32):
+        let rotMat = getRotMat b.rot
+        let bPos = rectPoints(makerect(int b.pos.x, int b.pos.y, 32, 32)).mapIt(it - b.pos).mapIt(it * rotMat).mapIt(it + b.pos)
+        if point.in(bPos[0], bPos[1], bPos[2], bPos[3]):
             return true
     return false
 
@@ -202,7 +206,7 @@ while not WindowShouldClose():
             fcount = 0
         elif collided:
             if fcount mod 30 == 0:
-                bullets &= angryEnemCast(enemies, PI / 3)
+                bullets &= angryEnemCast(enemies, PI / 2)
             moveBullets bullets
             
             # eCols = (RED, RED)
