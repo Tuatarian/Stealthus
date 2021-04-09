@@ -238,7 +238,8 @@ while not WindowShouldClose():
     score += calcScore(plrCenter, screenCenter)
 
     BeginDrawing()
-    drawTextCentered "Stay near the center\n    for more score", screenWidth div 2, screenHeight div 2, 50, WHITE
+    drawTextCentered &"Score :", screenWidth div 2, (screenHeight div 2) - 25, 50, WHITE 
+    drawTextCentered $int round score, screenWidth div 2,(screenHeight div 2) + 25, 50, WHITE
     drawTextCenteredX "Entering a cone starts bullet hell", screenWidth div 2, 70, 40, WHITE
     renderBullets bullets, enmTex
     DrawTextureV plrTex, plr.pos, WHITE
