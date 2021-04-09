@@ -1,4 +1,4 @@
-import raylib, rlgl, rayutils, sequtils, math, random
+import raylib, rlgl, rayutils, sequtils, math, random, strformat
 
 randomize()
 
@@ -8,6 +8,7 @@ type
         dir : Vector2
         canMove : bool
         dead : bool
+        collider : Rectangle
     Enemy = object
         pos : Vector2
         npos : Vector2
@@ -24,6 +25,7 @@ type
 const
     screenWidth = 1920
     screenHeight = 1080
+    screenCenter = makevec2(screenWidth div 2, screenHeight div 2)
 
 InitWindow screenWidth, screenHeight, "Stealthus"
 
@@ -112,36 +114,47 @@ func angryEnemCast(eSeq : var seq[Enemy], rotAmt : float) : seq[Bullet]=
 
 func moveBullets(bSeq : var seq[Bullet]) =
     for i in 0..<bSeq.len:
-        bSeq[i].pos += bSeq[i].dir * 7.5
+        bSeq[i].pos += bSeq[i].dir * 5
 
 func renderBullets(bSeq : seq[Bullet], bTex : Texture) =
     for b in bSeq:
         let rotMat = getRotMat b.rot
         drawTriangleFan rectPoints(makerect(int b.pos.x, int b.pos.y, 32, 32)).mapIt(it - b.pos).mapIt(it * rotMat).mapIt(it + b.pos), RED
 
-func checkCol(enems : seq[Enemy], eTex : Texture, point : Vector2, bullets : seq[Bullet]) : bool =
+func checkCol(enems : seq[Enemy], eTex : Texture, bullets : seq[Bullet], collider : Rectangle) : bool =
+    var colPoints = toSeq(rectPoints(collider)) & makevec2(collider.x + (collider.width / 2), collider.y)
     for e in enems:
-        if point in makerect(int e.pos.x, int e.pos.y, eTex.width, eTex.height):
-            return true
+        for p in colPoints:
+            if p in makerect(int e.pos.x, int e.pos.y, eTex.width, eTex.height):
+                return true
     for b in bullets:
         let rotMat = getRotMat b.rot
         let bPos = rectPoints(makerect(int b.pos.x, int b.pos.y, 32, 32)).mapIt(it - b.pos).mapIt(it * rotMat).mapIt(it + b.pos)
-        if point.in(bPos[0], bPos[1], bPos[2], bPos[3]):
-            return true
+        for point in colPoints:
+            if point.in(bPos[0], bPos[1], bPos[2], bPos[3]):
+                return true
     return false
 
-func checkConeCol(enems : seq[Enemy], eTex : Texture, point : Vector2) : bool =
+func checkConeCol(enems : seq[Enemy], eTex : Texture, collider : Rectangle) : bool =
+    let colPoints = toSeq(rectPoints(collider)) & makevec2(collider.x + (collider.width / 2), collider.y)
     for e in enems:
         let ecenter = e.pos + makevec2(eTex.width / 2, eTex.height / 2)
         let cpv = genConeCPV(angleToPoint(e.dir), ecenter)
         for i in 0..<cpv.len - 1:
-            if point.in(ecenter, cpv[i], cpv[i + 1]):
-                return true
+            for p in colPoints:
+                if p.in(ecenter, cpv[i], cpv[i + 1]):
+                    return true
+
+func calcScore(pos : Vector2, center : Vector2) : float =
+    let dist = abs dist(center, pos)
+    let arg = dist / 100
+    return 10 * sigmoid(arg, z = -6) 
 
 let
     plrTex = LoadTexture "assets/sprites/plr.png"
     enmTex = LoadTexture "assets/sprites/Enem.png"
     damping = 0.2
+    hitSound = LoadSound "assets/sounds/GenericNotify.ogg"
     reducedColorArr = colorArr[3..10] & colorArr[12..13] & colorArr[15..16] & colorArr[21] & colorArr[23..24] & colorArr[26]
 
 var
@@ -153,6 +166,9 @@ var
     collided : bool
     bullets : seq[Bullet]
     lossTimer : int
+    score : float
+    fCollided : int
+    firstRun = true
 
 for i in 0..9:
     enemies.add Enemy(pos : makevec2(rand screenWidth, rand screenHeight))
@@ -163,13 +179,17 @@ while not WindowShouldClose():
     let mp = GetMousePosition() - makevec2(plrTex.width / 2, plrTex.height / 2)
     plr.pos = mp
     plr.pos = min(max(makevec2(0, 0), plr.pos), makevec2(screenWidth, screenHeight))
+    plr.collider = makerect(int plr.pos.x, int plr.pos.y, plrTex.width, plrTex.height)
     let plrCenter = plr.pos + makevec2(plrTex.width / 2, plrTex.height / 2)
 
-    if checkCol(enemies, enmTex, plrcenter, bullets):
+    if checkCol(enemies, enmTex, bullets, plr.collider):
         plr.dead = true
     
     if plr.dead:
+        firstRun = false
         fcount = 0
+        score = 0
+        fCollided = 0
         lossTimer += 1
         bullets = @[]
         enemies = @[]
@@ -188,7 +208,7 @@ while not WindowShouldClose():
     else:
         if not collided: moveEnems enemies
         
-        if checkConeCol(enemies, enmTex, plrCenter):
+        if checkConeCol(enemies, enmTex, plr.collider):
             collided = true
 
         if fcount mod 360 == 0:
@@ -204,19 +224,28 @@ while not WindowShouldClose():
             for i in 0..<enemies.len:
                 enemies[i].rot = angleToPoint enemies[i].dir
             fcount = 0
+            fCollided = 0
         elif collided:
-            if fcount mod 30 == 0:
-                bullets &= angryEnemCast(enemies, PI / 2)
+            if fCollided mod 35 == 5:
+                fCollided = 5
+                bullets &= angryEnemCast(enemies, PI)
             moveBullets bullets
             
-            # eCols = (RED, RED)
-        
+            fCollided += 1
+            
+            eCols[1]  = RED
+    
+    score += calcScore(plrCenter, screenCenter)
 
     BeginDrawing()
+    drawTextCentered "Stay near the center\n    for more score", screenWidth div 2, screenHeight div 2, 50, WHITE
+    drawTextCenteredX "Entering a cone starts bullet hell", screenWidth div 2, 70, 40, WHITE
     renderBullets bullets, enmTex
     DrawTextureV plrTex, plr.pos, WHITE
     renderEnms enemies, enmTex, eCols[0], eCols[1]
-    DrawFPS 100, 100
+    drawTextCenteredX &"Score : {$int round score}", screenWidth - 150, 70, 40, WHITE
+    drawTextCenteredX $(reflect(fcount, 180) div 60), 100, 70, 100, WHITE
+    
     EndDrawing()
 
     fcount += 1
