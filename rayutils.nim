@@ -1,4 +1,4 @@
-import raylib, math, hashes, sugar, macros, strutils, lenientops, sequtils
+import raylib, math, hashes, sugar, macros, strutils, lenientops, sequtils, algorithm
 
 template BGREY*() : auto = makecolor("242424", 255)
 template OFFWHITE*() : auto = makecolor(235, 235, 235)
@@ -17,8 +17,8 @@ func makecolor*(s : string, alp : uint8 = 255) : Color =
 func makevec2*(x, y: float | float32 | int) : Vector2 =  ## Easy vec2 constructor
     Vector2(x : float x, y : float y)
 
-func sigmoid*(x : int | float, a : int | float = 1, b : int | float = E, h : int | float = 0, k : int | float = 0) : float = ## Sigmoid in the form a(1/1 + e^(hx)) + k
-    return a * 1/(1 + pow(E, h * x)) + k
+func sigmoid*(x : int | float, a : int | float = 1, b : int | float = E, h : int | float = 1, k : int | float = 0, z : int | float = 0) : float = ## Sigmoid in the form a(1/1 + e^(hx + z)) + k
+    return a * 1/(1 + pow(E, h * x + z)) + k
 
 macro iterIt*[T](s : openArray[T], op : untyped) : untyped = ## applies operation to it
     result = newStmtList()
@@ -151,6 +151,10 @@ func `in`*(v : Vector2, tri : Triangle) : bool =
     let d2 = sign(v, tri.v2, tri.v3)
     let d3 = sign(v, tri.v3, tri.v1)
     return not (((d < 0) or (d2 < 0) or (d3 < 0)) and ((d > 0) or (d2 > 0) or (d3 > 0)))
+
+func `in`*(v : Vector2, v1, v2, v3, v4 : Vector2) : bool =
+    let vSeq = [v1, v2, v3, v4].sorted((x, y) => cmp[float](x.x, y.y), Ascending)
+    return v.in(vSeq[0], vSeq[1], vSeq[2]) or v.in(vSeq[1], vSeq[2], vSeq[3])
 
 proc unloadTexture*(texargs : varargs[Texture]) = ## runs UnloadTexture for each vararg
     texargs.iterIt(unloadTexture it)
