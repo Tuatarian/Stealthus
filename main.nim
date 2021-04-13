@@ -29,6 +29,8 @@ const
 
 InitWindow screenWidth, screenHeight, "Stealthus"
 
+InitAudioDevice()
+
 SetTargetFPS 60
 
 func circlePartVerts(th : float, dTH : float, tNum : int, r : float, origin : Vector2) : seq[Vector2] =
@@ -154,8 +156,11 @@ let
     plrTex = LoadTexture "assets/sprites/plr.png"
     enmTex = LoadTexture "assets/sprites/Enem.png"
     damping = 0.2
-    hitSound = LoadSound "assets/sounds/GenericNotify.ogg"
+    hitSound = LoadSound "assets/sounds/sfx/dblClick.ogg"
+    btSound = LoadSound "assets/sounds/sfx/Error.ogg"
     reducedColorArr = colorArr[3..10] & colorArr[12..13] & colorArr[15..16] & colorArr[21] & colorArr[23..24] & colorArr[26]
+
+btSound.SetSoundVolume(0.5)
 
 var
     plr = Player(pos : makevec2(screenWidth, screenHeight), canMove : true)
@@ -168,7 +173,7 @@ var
     lossTimer : int
     score : float
     fCollided : int
-    firstRun = true
+    ffCollided : bool
 
 for i in 0..9:
     enemies.add Enemy(pos : makevec2(rand screenWidth, rand screenHeight))
@@ -184,9 +189,9 @@ while not WindowShouldClose():
 
     if checkCol(enemies, enmTex, bullets, plr.collider):
         plr.dead = true
+        PlaySound hitSound
     
     if plr.dead:
-        firstRun = false
         fcount = 0
         score = 0
         fCollided = 0
@@ -208,8 +213,9 @@ while not WindowShouldClose():
     else:
         if not collided: moveEnems enemies
         
-        if checkConeCol(enemies, enmTex, plr.collider):
+        if checkConeCol(enemies, enmTex, plr.collider) and not collided:
             collided = true
+            PlaySound btSound
 
         if fcount mod 360 == 0:
             bullets = @[]
@@ -227,6 +233,9 @@ while not WindowShouldClose():
             fCollided = 0
         elif collided:
             if fCollided mod 35 == 5:
+                if not ffCollided:
+                    PlaySound btSound
+                    ffCollided = true
                 fCollided = 5
                 bullets &= angryEnemCast(enemies, PI)
             moveBullets bullets
@@ -244,8 +253,8 @@ while not WindowShouldClose():
     renderBullets bullets, enmTex
     DrawTextureV plrTex, plr.pos, WHITE
     renderEnms enemies, enmTex, eCols[0], eCols[1]
-    drawTextCenteredX &"Score : {$int round score}", screenWidth - 150, 70, 40, WHITE
-    drawTextCenteredX $(reflect(fcount, 180) div 60), 100, 70, 100, WHITE
+    # drawTextCenteredX &"Score : {$int round score}", screenWidth - 150, 70, 40, WHITE
+    # drawTextCenteredX $(reflect(fcount, 180) div 60), 100, 70, 100, WHITE
     
     EndDrawing()
 
