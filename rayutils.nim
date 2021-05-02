@@ -20,9 +20,10 @@ func makevec2*(x, y: float | float32 | int) : Vector2 =  ## Easy vec2 constructo
 func sigmoid*(x : int | float, a : int | float = 1, b : int | float = E, h : int | float = 1, k : int | float = 0, z : int | float = 0) : float = ## Sigmoid in the form a(1/1 + e^(hx + z)) + k
     return a * 1/(1 + pow(E, h * x + z)) + k
 
-macro iterIt*[T](s : openArray[T], op : untyped) : untyped = ## applies operation to it
-    result = newStmtList()
-    result.add(newTree(nnkForStmt, newIdentNode("it"), newIdentNode($s), newStmtList(op)))
+template iterIt*(s, op : untyped) : untyped =
+    for i in low(s)..high(s):
+        let it {.inject.} = s[i]
+        op
 
 const colorArr* : array[27, Color] = [LIGHTGRAY, GRAY, DARKGRAY, YELLOW, GOLD, ORANGE, PINK, RED, MAROON, GREEN, LIME, DARKGREEN, SKYBLUE, BLUE, DARKBLUE, PURPLE, VIOLET, DARKPURPLE, BEIGE, BROWN, DARKBROWN, WHITE, BLACK, MAGENTA, RAYWHITE, BGREY, OFFWHITE] ## Array of all rl colours
 
@@ -156,14 +157,14 @@ func `in`*(v : Vector2, v1, v2, v3, v4 : Vector2) : bool =
     let vSeq = [v1, v2, v3, v4].sorted((x, y) => cmp[float](x.x, y.y), Ascending)
     return v.in(vSeq[0], vSeq[1], vSeq[2]) or v.in(vSeq[1], vSeq[2], vSeq[3])
 
-proc unloadTexture*(texargs : varargs[Texture]) = ## runs UnloadTexture for each vararg
-    texargs.iterIt(unloadTexture it)
+proc UnloadTexture*(texargs : varargs[Texture]) = ## runs UnloadTexture for each vararg
+    texargs.iterIt(UnloadTexture it)
 
-proc unloadMusicStream*(musargs : varargs[Music]) = ## runs UnloadMusicStream on each vararg
-    musargs.iterIt(unloadMusicStream it)
+proc UnloadMusicStream*(musargs : varargs[Music]) = ## runs UnloadMusicStream on each vararg
+    musargs.iterIt(UnloadMusicStream it)
 
-proc unloadSound*(soundargs : varargs[Sound]) = ## runs UnloadSound for each varargs
-    soundargs.iterIt(unloadSound it)
+proc UnloadSound*(soundargs : varargs[Sound]) = ## runs UnloadSound for each varargs
+    soundargs.iterIt(UnloadSound it)
 
 func toTuple*(v : Vector2) : (float32, float32) = ## Returns (x, y)
     return (v.x, v.y) 

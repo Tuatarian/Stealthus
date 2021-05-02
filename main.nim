@@ -155,16 +155,17 @@ func calcScore(pos : Vector2, center : Vector2) : float =
 let
     plrTex = LoadTexture "assets/sprites/plr.png"
     enmTex = LoadTexture "assets/sprites/Enem.png"
-    damping = 0.2
     hitSound = LoadSound "assets/sounds/sfx/dblClick.ogg"
     btSound = LoadSound "assets/sounds/sfx/Error.ogg"
     reducedColorArr = colorArr[3..10] & colorArr[12..13] & colorArr[15..16] & colorArr[21] & colorArr[23..24] & colorArr[26]
+    musArgs = [LoadMusicStream "assets/sounds/music/DodgeSlow.mp3", LoadMusicStream "assets/sounds/music/DodgeFast.mp3"]
+    # ds = LoadMusicStream "assets/sounds/sfx/Capture.ogg"
 
-btSound.SetSoundVolume(0.5)
+SetMasterVolume 0.5
+btSound.SetSoundVolume(1)
 
 var
     plr = Player(pos : makevec2(screenWidth, screenHeight), canMove : true)
-    velo : Vector2
     enemies : seq[Enemy]
     fcount : int
     eCols : (Color, Color)
@@ -174,12 +175,24 @@ var
     score : float
     fCollided : int
     ffCollided : bool
+    impi : int
 
-for i in 0..9:
-    enemies.add Enemy(pos : makevec2(rand screenWidth, rand screenHeight))
+# for i in 0..1:
+#     enemies.add Enemy(pos : makevec2(rand screenWidth, rand screenHeight))
 
 while not WindowShouldClose():
+
     ClearBackground BGREY
+
+    musArgs.iterIt(UpdateMusicStream it)
+    let impArr = musArgs.mapIt(IsMusicPlaying it)
+    let imp = impArr.foldl(a or b)
+    if imp: impi = impArr.find(true)
+
+    if not imp:
+        PlayMusicStream musArgs[0]
+        PlayMusicStream musArgs[1]
+        PauseMusicStream musArgs[1]
     
     let mp = GetMousePosition() - makevec2(plrTex.width / 2, plrTex.height / 2)
     plr.pos = mp
@@ -190,6 +203,8 @@ while not WindowShouldClose():
     if checkCol(enemies, enmTex, bullets, plr.collider):
         plr.dead = true
         PlaySound hitSound
+        PauseMusicStream musArgs[1]
+        # StopMusicStream musArgs[0]
     
     if plr.dead:
         fcount = 0
@@ -201,7 +216,7 @@ while not WindowShouldClose():
         plr.dead = true
         if lossTimer == 7:
             lossTimer = 0
-            for i in 0..9:
+            for i in 0..2:
                 enemies.add Enemy(pos : makevec2(rand screenWidth, rand screenHeight))
             plr.dead = false
             collided = false
@@ -216,6 +231,8 @@ while not WindowShouldClose():
         if checkConeCol(enemies, enmTex, plr.collider) and not collided:
             collided = true
             PlaySound btSound
+            musArgs[0].PauseMusicStream()
+            if not musArgs[1].IsMusicPlaying(): ResumeMusicStream musArgs[1]
 
         if fcount mod 360 == 0:
             bullets = @[]
@@ -231,6 +248,8 @@ while not WindowShouldClose():
                 enemies[i].rot = angleToPoint enemies[i].dir
             fcount = 0
             fCollided = 0
+            PauseMusicStream musArgs[1]
+            if not IsMusicPlaying(musArgs[0]): ResumeMusicStream musArgs[0]
         elif collided:
             if fCollided mod 35 == 5:
                 if not ffCollided:
